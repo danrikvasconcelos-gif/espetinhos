@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Garçom – Espetinho da Brasa</title>
+<style>
+:root{--c:#1c1917;--b:#e4572e;--v:#1f7a4d;--r:#b91c1c;--a:#f5f0e8}
+*{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
+body{font-family:system-ui,sans-serif;background:var(--a);color:var(--c);padding-bottom:40px}
+#login{max-width:340px;margin:14vh auto;padding:20px;display:grid;gap:10px;text-align:center}
+header{position:sticky;top:0;z-index:2;background:var(--c);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;gap:8px}
+main{max-width:640px;margin:0 auto;padding:12px}
+.card{background:#fff;border-left:5px solid var(--b);border-radius:6px;padding:12px;margin-bottom:12px}
+h2{font-size:1.05rem;margin:14px 0 8px}
+h3{margin-bottom:6px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.row input,.row select{flex:1 1 120px}
+.ln{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #d6d3d1;gap:8px}
+.q{display:flex;align-items:center;gap:10px}
+.q button{width:42px;height:42px;border-radius:50%;padding:0;font-size:1.3rem}
+.tot{text-align:right;font-weight:bold;font-size:1.2rem;margin-top:10px}
+input,select{font:inherit;padding:12px;border:1px solid #a8a29e;border-radius:6px;min-width:0}
+button{font:inherit;padding:12px 16px;border:0;border-radius:6px;background:var(--c);color:#fff;cursor:pointer}
+button.ok{background:var(--v)}button.hd{background:#44403c;padding:8px 12px}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.chip{background:#e7e5e4;color:var(--c);text-align:left;padding:10px}
+.chip:disabled{opacity:.4}
+.chip small{display:block}
+small{color:#57534e}
+summary{cursor:pointer;margin-top:10px;font-weight:bold;padding:8px 0}
+</style></head><body>
+<div id="login"><h1>Área do garçom</h1><input id="usuario" placeholder="Usuário" autocomplete="username" autocapitalize="none"><input id="senha" type="password" placeholder="Senha" autocomplete="current-password"><button id="entrar" class="ok">Entrar</button><p id="lerr" style="color:var(--r)"></p></div>
+<div id="app" hidden><header><b id="quem"></b><span><button class="hd" id="atu">Atualizar</button> <button class="hd" id="sair">Sair</button></span></header><main id="v"></main></div>
+<script>
+const $=id=>document.getElementById(id),brl=v=>(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const PG=['Pix','Dinheiro','Cartão'];
+let S={},tok=sessionStorage.gtok||'',ab={};
+const P=id=>S.menu.find(p=>p.id==id)||{nome:'?',preco:0};
+const tot=it=>Object.entries(it).reduce((s,[i,q])=>s+q*P(i).preco,0);
+function limpar(){tok='';sessionStorage.clear();$('app').hidden=true;$('login').hidden=false}
+const api=async b=>{const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','x-token':tok},body:JSON.stringify(b)});const j=await r.json();if(!r.ok){if(r.status===401&&tok)limpar();throw new Error(j.erro||'Erro')}return j};
+async function load(){S=await api({a:'mesas'});render()}
+async function act(b){try{await api(b);await load();return true}catch(e){alert(e.message);if(tok)load().catch(()=>{});return false}}
+async function entrar(){
+ $('lerr').textContent='';
+ try{
+  if(!tok){const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({a:'login',usuario:$('usuario').value,senha:$('senha').value})});const j=await r.json();if(!r.ok)throw new Error(j.erro||'Erro');tok=j.token;sessionStorage.gtok=tok}
+  await load();$('login').hidden=true;$('app').hidden=false;$('senha').value='';
+ }catch(e){tok='';sessionStorage.clear();$('lerr').textContent=e.message;$('app').hidden=true;$('login').hidden=false}
+}
+$('entrar').onclick=entrar;$('senha').onkeydown=e=>{if(e.key==='Enter')entrar()};
+$('atu').onclick=()=>load().catch(e=>alert(e.message));
+$('sair').onclick=async()=>{try{await api({a:'logout'})}catch(e){}limpar()};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tok&&!$('app').hidden)load().catch(()=>{})});
+const pode=t=>S.perfil==='admin'||t.garcom===S.usuario;
+const chips=n=>[...new Set(S.menu.map(p=>p.cat))].map(c=>`<h2>${esc(c)}</h2><div class="chips">${S.menu.filter(p=>p.cat===c).map(p=>{const e=+S.estoque[p.id]||0;return `<button class="chip" ${e>0?'':'disabled'} onclick="item('${n}',${p.id},1)">${esc(p.nome)}<small>${brl(p.preco)} · ${e>0?e+' disponíveis':'esgotado'}</small></button>`}).join('')}</div>`).join('');
+const card=(n,t)=>`<div class="card"><h3>Mesa ${n}</h3>
+ ${Object.entries(t.itens).map(([id,q])=>`<div class="ln"><span>${esc(P(id).nome)}<br><small>${brl(P(id).preco)} cada</small></span><span class="q"><button onclick="item('${n}',${id},-1)">−</button><b>${q}</b><button onclick="item('${n}',${id},1)">+</button></span></div>`).join('')||'<small>Nenhum item ainda.</small>'}
+ <details ${ab[n]?'open':''} ontoggle="ab['${n}']=this.open"><summary>Adicionar item</summary>${chips(n)}</details>
+ <div class="tot">Conta: ${brl(tot(t.itens))}</div>
+ <div class="row"><select id="pg${n}">${PG.map(p=>`<option>${p}</option>`).join('')}</select><button class="ok" onclick="fechar('${n}')">Fechar conta</button></div></div>`;
+function render(){
+ $('quem').textContent='Olá, '+S.usuario;
+ const es=Object.entries(S.mesas).sort((a,b)=>a[0]-b[0]),own=es.filter(([,t])=>pode(t)),out=es.filter(([,t])=>!pode(t));
+ $('v').innerHTML=`<div class="card"><h3>Abrir mesa</h3><div class="row"><input id="nm" type="number" inputmode="numeric" min="1" placeholder="Nº da mesa"><button class="ok" onclick="abrir()">Abrir mesa</button></div></div>`
+  +`<h2>Minhas mesas</h2>`+(own.map(([n,t])=>card(n,t)).join('')||'<p><small>Nenhuma mesa aberta por você.</small></p>')
+  +(out.length?`<h2>Mesas de outros garçons</h2>`+out.map(([n,t])=>`<div class="card"><div class="ln"><span>Mesa ${n} · ${esc(t.garcom)}</span><b>${brl(tot(t.itens))}</b></div></div>`).join(''):'');
+}
+async function abrir(){const m=parseInt($('nm').value);if(!m||m<1)return alert('Informe o número da mesa.');ab[m]=true;await act({a:'mesa_abrir',mesa:String(m)})}
+const item=(m,id,d)=>act({a:'mesa_item',mesa:m,id,d});
+const fechar=n=>{const t=S.mesas[n];if(confirm(`Fechar a conta da mesa ${n}?\nTotal: ${brl(tot(t.itens))}`))act({a:'mesa_fechar',mesa:n,pgto:$('pg'+n).value})};
+if(tok)entrar();
+</script></body></html>

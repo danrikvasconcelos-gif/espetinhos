@@ -50,9 +50,11 @@ module.exports=async(req,res)=>{
   if(un==='admin')perfil='admin';else if(un){const x=J(await r('HGET','users',un));if(x)perfil=x.perfil}
   if(!perfil)return er(401,'Sessão expirada. Entre novamente.');
   if(a==='logout'){await r('DEL','sess:'+tk);return ok()}
-  if(perfil!=='admin'&&a!=='state')return er(403,'Seu perfil é somente de visualização.');
+  if(perfil==='garcom'){if(!['mesas','mesa_abrir','mesa_item','mesa_fechar'].includes(a))return er(403,'Perfil de garçom: use a página /garcom.')}
+  else if(perfil!=='admin'&&a!=='state')return er(403,'Seu perfil é somente de visualização.');
+  if(a==='mesas'){const [s,t]=await Promise.all([r('HGETALL','stock'),r('HGETALL','tables')]);return res.json({perfil,usuario:un,menu:m,estoque:H(s),mesas:ob(t)})}
   if(a==='usuario_salvar'){
-   const u=String(b.usuario||'').trim().toLowerCase(),sn=String(b.senha||''),pf=b.perfil==='admin'?'admin':'visualizacao';
+   const u=String(b.usuario||'').trim().toLowerCase(),sn=String(b.senha||''),pf=['admin','garcom'].includes(b.perfil)?b.perfil:'visualizacao';
    if(!/^[a-z0-9._-]{3,30}$/.test(u)||u==='admin')return er(400,'Nome de usuário inválido ou reservado.');
    if(sn.length<8)return er(400,'A senha precisa ter pelo menos 8 caracteres.');
    await r('HSET','users',u,JSON.stringify({hash:hs(sn),perfil:pf}));return ok();
@@ -60,14 +62,15 @@ module.exports=async(req,res)=>{
   if(a==='usuario_excluir'){await r('HDEL','users',String(b.usuario||''));return ok()}
   if(a==='state'){
    const [s,w,t,o,v,us]=await Promise.all([r('HGETALL','stock'),r('GET','waiters'),r('HGETALL','tables'),r('HGETALL','orders'),r('LRANGE','sales:'+(b.dia||hoje()),0,-1),r('HGETALL','users')]);
-   return res.json({perfil,usuario:un,usuarios:perfil==='admin'?Object.entries(ob(us)).map(([usuario,x])=>({usuario,perfil:x.perfil})):[],menu:m,estoque:H(s),garcons:J(w)||[],mesas:ob(t),pedidos:ob(o),vendas:v.map(J)});
+   return res.json({perfil,usuario:un,gu:Object.entries(ob(us)).filter(([,x])=>x.perfil==='garcom').map(([k])=>k),usuarios:perfil==='admin'?Object.entries(ob(us)).map(([usuario,x])=>({usuario,perfil:x.perfil})):[],menu:m,estoque:H(s),garcons:J(w)||[],mesas:ob(t),pedidos:ob(o),vendas:v.map(J)});
   }
   if(a==='menu_save'){await r('SET','menu',JSON.stringify(b.menu));return ok()}
   if(a==='estoque_lote'){for(const [id,q] of Object.entries(b.itens||{}))await r('HSET','stock',id,Math.max(0,Math.floor(+q)||0));return ok()}
   if(a==='estoque'){await r('HSET','stock',b.id,Math.max(0,Math.floor(+b.qtd)||0));return ok()}
   if(a==='garcons'){await r('SET','waiters',JSON.stringify(b.lista||[]));return ok()}
-  if(a==='mesa_abrir'){if(await r('HEXISTS','tables',b.mesa))return er(409,'Mesa já está aberta');await r('HSET','tables',b.mesa,JSON.stringify({garcom:b.garcom,itens:{}}));return ok()}
+  if(a==='mesa_abrir'){if(!/^\d{1,3}$/.test(String(b.mesa)))return er(400,'Número de mesa inválido');if(await r('HEXISTS','tables',b.mesa))return er(409,'Mesa já está aberta');await r('HSET','tables',b.mesa,JSON.stringify({garcom:perfil==='garcom'?un:(b.garcom||un),itens:{}}));return ok()}
   const t=(a||'').startsWith('mesa_')?J(await r('HGET','tables',b.mesa)):null;
+  if(t&&perfil==='garcom'&&t.garcom!==un)return er(403,'Esta mesa é de outro garçom.');
   if(a==='mesa_item'){
    if(!t)return er(404,'Mesa não encontrada');
    const q=t.itens[b.id]||0;
