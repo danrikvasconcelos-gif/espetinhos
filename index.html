@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Espetinho da Brasa – Peça pelo WhatsApp</title>
 <meta name="description" content="Espetinhos na brasa. Monte seu pedido e envie pelo WhatsApp.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍢</text></svg>">
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
 <style>
 :root{--carvao:#1c1917;--brasa:#e4572e;--brasa-esc:#b8401c;--cinza:#57534e;--areia:#f5f0e8;--branco:#fff;--verde:#1f7a4d}
 *{box-sizing:border-box;margin:0}
@@ -48,6 +48,7 @@ input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid #a8a
 </head>
 <body>
 <header>
+  <img src="/logo.svg" width="84" height="84" alt="Logo Espetinho da Brasa" style="display:block;margin:0 auto 12px;border-radius:18px">
   <h1>Espetinho da Brasa</h1>
   <p>Assado na hora. Escolha os espetos e envie o pedido pelo WhatsApp.</p>
 </header>
@@ -80,7 +81,7 @@ input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid #a8a
 
 <script>
 // ====== CONFIGURE AQUI ======
-const WHATSAPP = "5585988015655"; // DDI + DDD + número, só dígitos
+const WHATSAPP = "5588999999999"; // DDI + DDD + número, só dígitos
 const TAXA_ENTREGA = 5;           // 0 para não cobrar
 let MENU=[],EST={};
 const api=async b=>{const r=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.erro||"Erro");return j};

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Espetinho da Brasa">
+<rect width="64" height="64" rx="14" fill="#e4572e"/>
+<g stroke-linecap="round">
+<g transform="translate(19 52) rotate(-10)"><line x1="0" y1="4" x2="0" y2="-36" stroke="#f5f0e8" stroke-width="2.2"/><rect x="-5.5" y="-31" width="11" height="8" rx="3" fill="#5b1f10"/><rect x="-5.5" y="-21" width="11" height="8" rx="3" fill="#3f9b5f"/><rect x="-5.5" y="-11" width="11" height="8" rx="3" fill="#5b1f10"/></g>
+<g transform="translate(45 52) rotate(10)"><line x1="0" y1="4" x2="0" y2="-36" stroke="#f5f0e8" stroke-width="2.2"/><rect x="-5.5" y="-31" width="11" height="8" rx="3" fill="#f7c948"/><rect x="-5.5" y="-21" width="11" height="8" rx="3" fill="#5b1f10"/><rect x="-5.5" y="-11" width="11" height="8" rx="3" fill="#3f9b5f"/></g>
+<g transform="translate(32 52)"><line x1="0" y1="4" x2="0" y2="-41" stroke="#f5f0e8" stroke-width="2.2"/><rect x="-5.5" y="-36" width="11" height="9" rx="3.2" fill="#5b1f10"/><rect x="-5.5" y="-25" width="11" height="9" rx="3.2" fill="#f7c948"/><rect x="-5.5" y="-14" width="11" height="9" rx="3.2" fill="#5b1f10"/></g>
+</g>
+<rect x="9" y="52" width="46" height="7" rx="3.5" fill="#1c1917"/>
+<circle cx="19" cy="55.5" r="1.4" fill="#f7c948"/><circle cx="32" cy="55.5" r="1.4" fill="#f7c948"/><circle cx="45" cy="55.5" r="1.4" fill="#f7c948"/>
+</svg>

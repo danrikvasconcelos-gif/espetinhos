@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Garçom – Espetinho da Brasa</title>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Garçom – Espetinho da Brasa</title><link rel="icon" type="image/svg+xml" href="/logo.svg">
 <style>
 :root{--c:#1c1917;--b:#e4572e;--v:#1f7a4d;--r:#b91c1c;--a:#f5f0e8}
 *{box-sizing:border-box;margin:0}
@@ -27,8 +27,8 @@ button.ok{background:var(--v)}button.hd{background:#44403c;padding:8px 12px}
 small{color:#57534e}
 summary{cursor:pointer;margin-top:10px;font-weight:bold;padding:8px 0}
 </style></head><body>
-<div id="login"><h1>Área do garçom</h1><input id="usuario" placeholder="Usuário" autocomplete="username" autocapitalize="none"><input id="senha" type="password" placeholder="Senha" autocomplete="current-password"><button id="entrar" class="ok">Entrar</button><p id="lerr" style="color:var(--r)"></p></div>
-<div id="app" hidden><header><b id="quem"></b><span><button class="hd" id="atu">Atualizar</button> <button class="hd" id="sair">Sair</button></span></header><main id="v"></main></div>
+<div id="login"><img src="/logo.svg" width="88" height="88" alt="Logo Espetinho da Brasa" style="justify-self:center;border-radius:18px"><h1>Área do garçom</h1><input id="usuario" placeholder="Usuário" autocomplete="username" autocapitalize="none"><input id="senha" type="password" placeholder="Senha" autocomplete="current-password"><button id="entrar" class="ok">Entrar</button><p id="lerr" style="color:var(--r)"></p></div>
+<div id="app" hidden><header><span style="display:flex;align-items:center;gap:8px"><img src="/logo.svg" alt="" width="32" height="32" style="border-radius:8px"><b id="quem"></b></span><span><button class="hd" id="atu">Atualizar</button> <button class="hd" id="sair">Sair</button></span></header><main id="v"></main></div>
 <script>
 const $=id=>document.getElementById(id),brl=v=>(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));

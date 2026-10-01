@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Painel – Espetinho da Brasa</title>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Painel – Espetinho da Brasa</title><link rel="icon" type="image/svg+xml" href="/logo.svg">
 <style>
 :root{--c:#1c1917;--b:#e4572e;--v:#1f7a4d;--r:#b91c1c;--a:#f5f0e8}
 *{box-sizing:border-box;margin:0}
@@ -24,9 +24,9 @@ button.ok{background:var(--v)}button.no{background:var(--r)}
 .chip{background:#e7e5e4;color:var(--c)}.chip:disabled{opacity:.4}
 small{color:#57534e}
 </style></head><body>
-<div id="login"><h1>Painel do dono</h1><input id="usuario" placeholder="Usuário" autocomplete="username" autocapitalize="none" value="admin"><input id="senha" type="password" placeholder="Senha" autocomplete="current-password"><button id="entrar">Entrar</button><p id="lerr" style="color:var(--r)"></p></div>
+<div id="login"><img src="/logo.svg" width="88" height="88" alt="Logo Espetinho da Brasa" style="justify-self:center;border-radius:18px"><h1>Painel do dono</h1><input id="usuario" placeholder="Usuário" autocomplete="username" autocapitalize="none" value="admin"><input id="senha" type="password" placeholder="Senha" autocomplete="current-password"><button id="entrar">Entrar</button><p id="lerr" style="color:var(--r)"></p></div>
 <div id="app" hidden>
-<nav id="abas"><button data-t="mesas">Mesas</button><button data-t="wpp">WhatsApp</button><button data-t="estoque">Estoque</button><button data-t="ajustes">Ajustes</button><button data-t="usuarios">Usuários</button><button data-t="rel">Relatório</button><button id="sair">Sair</button></nav>
+<nav id="abas"><img src="/logo.svg" alt="" width="34" height="34" style="flex:none;margin:5px 8px;border-radius:8px"><button data-t="mesas">Mesas</button><button data-t="wpp">WhatsApp</button><button data-t="estoque">Estoque</button><button data-t="ajustes">Ajustes</button><button data-t="usuarios">Usuários</button><button data-t="rel">Relatório</button><button id="sair">Sair</button></nav>
 <main id="v"></main></div>
 <script>
 const PG=['Pix','Dinheiro','Cartão'],pgo=s=>PG.map(p=>`<option${p===s?' selected':''}>${p}</option>`).join('');
@@ -113,29 +113,38 @@ async function salvarUsuario(){
 }
 const delUsuario=u=>{if(confirm('Excluir o usuário '+u+'?'))act({a:'usuario_excluir',usuario:u})};
 // ---------- RELATÓRIO ----------
+const gs=()=>[...new Set(S.vendas.filter(v=>v.garcom).map(v=>v.garcom))].sort();
 function vRel(){
  const s=c=>S.vendas.filter(v=>v.canal===c).reduce((a,v)=>a+v.total,0);
  return `<div class="card"><h3>Relatório do dia</h3><input type="date" value="${dia}" onchange="dia=this.value;load()">
  <div class="ln"><span>Mesas</span><b>${brl(s('mesa'))}</b></div><div class="ln"><span>WhatsApp</span><b>${brl(s('whatsapp'))}</b></div>
  <div class="tot">Total: ${brl(s('mesa')+s('whatsapp'))}</div>
- <div class="row"><button class="ok" onclick="relatorio()">Gerar relatório</button></div>
+ <div class="row"><button class="ok" onclick="relatorio('mesa')">Relatório de Mesas</button><button class="ok" onclick="relatorio('whatsapp')">Relatório WhatsApp</button></div>
+ <div class="row"><select id="rg"><option value="">Todos os garçons</option>${gs().map(g=>`<option>${esc(g)}</option>`).join('')}</select><button class="ok" onclick="relatorio('garcom',$('rg').value)">Relatório por garçom</button></div>
+ <div class="row"><button onclick="relatorio('geral')">Relatório geral (tudo)</button></div>
  <small>Mesas abertas e pedidos pendentes só entram depois de fechados.</small></div>`;
 }
-function relatorio(){
+function relatorio(tipo,gar){
  const tb=(h,r)=>`<table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${r.map(l=>`<tr>${l.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table>`;
- const sec=(nome,c)=>{
-  const v=S.vendas.filter(x=>x.canal===c),pg={},it={},gc={};
+ const det=x=>`<div class="bx"><b>${x.canal==='mesa'?`Mesa ${esc(x.mesa)} · Garçom ${esc(x.garcom)}`:`Pedido #${x.pedido} · ${esc(x.cliente)} (${esc(x.tipo)})`}</b> <span>${x.hora} · ${esc(x.pgto)}</span>${tb(['Item','Qtd','Valor'],x.itens.map(i=>[esc(i.nome),i.qtd,brl(i.qtd*i.preco)]))}${x.taxa?`<div>Taxa de entrega: ${brl(x.taxa)}</div>`:''}<div class="t">Total: ${brl(x.total)}</div></div>`;
+ const sec=(t,v,g)=>{
+  const pg={},it={},gc={};
   v.forEach(x=>{pg[x.pgto]=(pg[x.pgto]||0)+x.total;if(x.garcom)gc[x.garcom]=(gc[x.garcom]||0)+x.total;x.itens.forEach(i=>{it[i.nome]=it[i.nome]||{q:0,t:0};it[i.nome].q+=i.qtd;it[i.nome].t+=i.qtd*i.preco})});
   const T=v.reduce((a,x)=>a+x.total,0);
-  return `<h2>${nome}</h2><p><b>${v.length}</b> fechamentos · Total <b>${brl(T)}</b></p>`+(v.length?
+  return `<h2>${t}</h2><p><b>${v.length}</b> fechamentos · Total <b>${brl(T)}</b></p>`+(v.length?
    `<h3>Por forma de pagamento</h3>`+tb(['Forma','Total'],Object.entries(pg).map(([k,x])=>[esc(k),brl(x)]))
-   +(c==='mesa'?`<h3>Por garçom</h3>`+tb(['Garçom','Total'],Object.entries(gc).map(([k,x])=>[esc(k),brl(x)])):'')
+   +(g?`<h3>Por garçom</h3>`+tb(['Garçom','Total'],Object.entries(gc).map(([k,x])=>[esc(k),brl(x)])):'')
    +`<h3>Itens vendidos</h3>`+tb(['Item','Qtd','Total'],Object.entries(it).map(([k,x])=>[esc(k),x.q,brl(x.t)]))
-   +`<h3>Fechamentos individuais</h3>`+tb(['Hora',c==='mesa'?'Mesa / Garçom':'Pedido / Cliente','Pgto','Total'],v.map(x=>[x.hora,c==='mesa'?`Mesa ${esc(x.mesa)} / ${esc(x.garcom)}`:`#${x.pedido} ${esc(x.cliente)} (${x.tipo})`,esc(x.pgto),brl(x.total)])):'<p>Sem vendas.</p>')
-  ;};
- const G=S.vendas.reduce((a,v)=>a+v.total,0);
+   +`<h3>Fechamentos individuais</h3>`+v.map(det).join(''):'<p>Sem vendas.</p>');
+ };
+ const M=S.vendas.filter(v=>v.canal==='mesa'),W=S.vendas.filter(v=>v.canal==='whatsapp');
+ let tit,corpo;
+ if(tipo==='mesa'){tit='Mesas';corpo=sec('Vendas nas mesas',M,true)}
+ else if(tipo==='whatsapp'){tit='WhatsApp';corpo=sec('Vendas por WhatsApp',W,false)}
+ else if(tipo==='garcom'){tit=gar?'Garçom '+gar:'Garçons';corpo=(gar?[gar]:gs()).map(g=>`<div class="pg">${sec('Garçom: '+esc(g),M.filter(v=>v.garcom===g),false)}</div>`).join('')||'<p>Sem vendas de garçons neste dia.</p>'}
+ else{tit='Geral';corpo=sec('Vendas nas mesas',M,true)+sec('Vendas por WhatsApp',W,false)+`<h2>Total geral: ${brl(S.vendas.reduce((a,v)=>a+v.total,0))}</h2>`}
  const w=window.open('','_blank');
- w.document.write(`<!DOCTYPE html><html lang="pt-BR"><meta charset="UTF-8"><title>Relatório ${dia}</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:20px auto;padding:0 14px}table{width:100%;border-collapse:collapse;margin:6px 0 14px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}h2{margin-top:26px;border-bottom:2px solid #000}@media print{button{display:none}}</style><button onclick="print()">Imprimir / Salvar PDF</button><h1>Espetinho da Brasa – Fechamento de ${dia.split('-').reverse().join('/')}</h1>${sec('Vendas nas mesas','mesa')}${sec('Vendas por WhatsApp','whatsapp')}<h2>Total geral: ${brl(G)}</h2>`);
+ w.document.write(`<!DOCTYPE html><html lang="pt-BR"><meta charset="UTF-8"><title>Relatório ${esc(tit)} ${dia}</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:20px auto;padding:0 14px}table{width:100%;border-collapse:collapse;margin:6px 0 12px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}h2{margin-top:26px;border-bottom:2px solid #000}.cb{display:flex;align-items:center;gap:12px;margin:12px 0}.cb h1{font-size:1.4rem}.bx{border:1px solid #bbb;border-radius:6px;padding:8px 10px;margin:10px 0;break-inside:avoid}.t{text-align:right;font-weight:bold}.pg+.pg{page-break-before:always}@media print{button{display:none}}</style><button onclick="print()">Imprimir / Salvar PDF</button><div class="cb"><img src="${location.origin}/logo.svg" width="56" height="56" alt=""><div><h1>Espetinho da Brasa</h1><div>Relatório de ${esc(tit)} – ${dia.split('-').reverse().join('/')}</div></div></div>${corpo}`);
  w.document.close();
 }
 </script></body></html>
