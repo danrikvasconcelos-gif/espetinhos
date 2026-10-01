@@ -3,6 +3,7 @@
 <style>
 :root{--c:#1c1917;--b:#e4572e;--v:#1f7a4d;--r:#b91c1c;--a:#f5f0e8}
 *{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
 body{font-family:system-ui,sans-serif;background:var(--a);color:var(--c);padding-bottom:40px}
 #login{max-width:340px;margin:18vh auto;padding:20px;display:grid;gap:10px;text-align:center}
 nav{position:sticky;top:0;background:var(--c);display:flex;overflow-x:auto;z-index:2}
@@ -36,7 +37,7 @@ const P=id=>S.menu.find(p=>p.id==id)||{nome:'?',preco:0};
 const tot=it=>Object.entries(it).reduce((s,[i,q])=>s+q*P(i).preco,0);
 const api=async b=>{const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','x-admin':encodeURIComponent(pw)},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.erro||'Erro');return j};
 async function load(){S=await api({a:'state',dia});render()}
-async function act(b){try{await api(b);await load()}catch(e){alert(e.message)}}
+async function act(b){try{await api(b);await load();return true}catch(e){alert(e.message);return false}}
 async function entrar(){pw=$('senha').value||pw;try{await load();sessionStorage.pw=pw;$('login').hidden=true;$('app').hidden=false}catch(e){$('lerr').textContent=e.message}}
 $('entrar').onclick=entrar;$('senha').onkeydown=e=>{if(e.key==='Enter')entrar()};if(pw)entrar();
 function go(t){aba=t;if(t==='ajustes')D=JSON.parse(JSON.stringify(S.menu));render()}
@@ -73,8 +74,14 @@ function vWpp(){
  ||'<p style="text-align:center;color:#57534e">Nenhum pedido pendente do WhatsApp.</p>';
 }
 // ---------- ESTOQUE ----------
-const vEstoque=()=>`<div class="card"><h3>Estoque</h3><small>Digite a quantidade disponível. Os clientes e as mesas usam este mesmo estoque.</small>`
- +S.menu.map(p=>`<div class="ln"><span>${esc(p.nome)}</span><input type="number" min="0" value="${+S.estoque[p.id]||0}" onchange="act({a:'estoque',id:${p.id},qtd:this.value})"></div>`).join('')+`</div>`;
+const vEstoque=()=>`<div class="card"><h3>Estoque</h3><small>Digite as quantidades disponíveis e clique em Salvar estoque. Os clientes e as mesas usam este mesmo estoque.</small>`
+ +S.menu.map(p=>`<div class="ln"><span>${esc(p.nome)}</span><input class="est" type="number" min="0" data-id="${p.id}" data-orig="${+S.estoque[p.id]||0}" value="${+S.estoque[p.id]||0}"></div>`).join('')
+ +`<div class="row"><button class="ok" onclick="salvarEstoque()">Salvar estoque</button></div></div>`;
+async function salvarEstoque(){
+ const itens={};document.querySelectorAll('.est').forEach(i=>{if(i.value!==i.dataset.orig)itens[i.dataset.id]=i.value});
+ if(!Object.keys(itens).length)return alert('Nenhuma quantidade foi alterada.');
+ if(await act({a:'estoque_lote',itens}))alert('Estoque salvo!');
+}
 // ---------- AJUSTES ----------
 const addP=()=>{D.push({id:Math.max(0,...D.map(p=>p.id))+1,cat:'Carnes',nome:'',desc:'',preco:0});render()};
 function vAjustes(){
