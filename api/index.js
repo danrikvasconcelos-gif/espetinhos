@@ -2,6 +2,9 @@ const U=process.env.UPSTASH_REDIS_REST_URL||process.env.KV_REST_API_URL,T=proces
 const r=async(...c)=>{const x=await fetch(U,{method:'POST',headers:{Authorization:'Bearer '+T},body:JSON.stringify(c.map(String))});const j=await x.json();if(j.error)throw new Error(j.error);return j.result};
 const H=a=>{const o={};for(let i=0;i<(a||[]).length;i+=2)o[a[i]]=a[i+1];return o};
 const J=s=>s?JSON.parse(s):null;
+const crypto=require('crypto');
+const hs=p=>{const s=crypto.randomBytes(16).toString('hex');return s+':'+crypto.scryptSync(p,s,32).toString('hex')};
+const chk=(p,h)=>{const [s,x]=String(h).split(':');if(!s||!x)return false;const y=crypto.scryptSync(p,s,32).toString('hex');return x.length===y.length&&crypto.timingSafeEqual(Buffer.from(x),Buffer.from(y))};
 const TZ={timeZone:'America/Fortaleza'};
 const hoje=()=>new Date().toLocaleDateString('sv-SE',TZ);
 const hora=()=>new Date().toLocaleTimeString('pt-BR',{...TZ,hour:'2-digit',minute:'2-digit'});
@@ -30,15 +33,37 @@ module.exports=async(req,res)=>{
    return res.json({id,subtotal:soma(l)});
   }
   // ---- área do dono ----
-  const SENHA=(process.env.ADMIN_PASSWORD||'').trim();
-  if(!SENHA)return er(401,'ADMIN_PASSWORD não está configurada neste deploy. Faça um Redeploy na Vercel.');
-  let hs='';try{hs=decodeURIComponent(req.headers['x-admin']||'').trim()}catch(e){}
-  if(hs!==SENHA)return er(401,'Senha incorreta');
+  if(a==='login'){
+   const u=String(b.usuario||'').trim().toLowerCase().slice(0,30),senha=String(b.senha||'');
+   const k='tent:'+u,n=await r('INCR',k);await r('EXPIRE',k,900);
+   if(n>8)return er(429,'Muitas tentativas. Aguarde 15 minutos.');
+   let pf=null;
+   if(u==='admin'){const S0=(process.env.ADMIN_PASSWORD||'').trim();if(!S0)return er(401,'ADMIN_PASSWORD não está configurada neste deploy. Faça um Redeploy na Vercel.');if(senha.trim()===S0)pf='admin'}
+   else{const x=J(await r('HGET','users',u));if(x&&chk(senha,x.hash))pf=x.perfil}
+   if(!pf)return er(401,'Usuário ou senha incorretos');
+   const novo=crypto.randomBytes(24).toString('hex');
+   await r('SET','sess:'+novo,u,'EX',43200);await r('DEL',k);
+   return res.json({token:novo,usuario:u,perfil:pf});
+  }
+  const tk=String(req.headers['x-token']||''),un=/^[a-f0-9]{48}$/.test(tk)?await r('GET','sess:'+tk):null;
+  let perfil=null;
+  if(un==='admin')perfil='admin';else if(un){const x=J(await r('HGET','users',un));if(x)perfil=x.perfil}
+  if(!perfil)return er(401,'Sessão expirada. Entre novamente.');
+  if(a==='logout'){await r('DEL','sess:'+tk);return ok()}
+  if(perfil!=='admin'&&a!=='state')return er(403,'Seu perfil é somente de visualização.');
+  if(a==='usuario_salvar'){
+   const u=String(b.usuario||'').trim().toLowerCase(),sn=String(b.senha||''),pf=b.perfil==='admin'?'admin':'visualizacao';
+   if(!/^[a-z0-9._-]{3,30}$/.test(u)||u==='admin')return er(400,'Nome de usuário inválido ou reservado.');
+   if(sn.length<8)return er(400,'A senha precisa ter pelo menos 8 caracteres.');
+   await r('HSET','users',u,JSON.stringify({hash:hs(sn),perfil:pf}));return ok();
+  }
+  if(a==='usuario_excluir'){await r('HDEL','users',String(b.usuario||''));return ok()}
   if(a==='state'){
-   const [s,w,t,o,v]=await Promise.all([r('HGETALL','stock'),r('GET','waiters'),r('HGETALL','tables'),r('HGETALL','orders'),r('LRANGE','sales:'+(b.dia||hoje()),0,-1)]);
-   return res.json({menu:m,estoque:H(s),garcons:J(w)||[],mesas:ob(t),pedidos:ob(o),vendas:v.map(J)});
+   const [s,w,t,o,v,us]=await Promise.all([r('HGETALL','stock'),r('GET','waiters'),r('HGETALL','tables'),r('HGETALL','orders'),r('LRANGE','sales:'+(b.dia||hoje()),0,-1),r('HGETALL','users')]);
+   return res.json({perfil,usuario:un,usuarios:perfil==='admin'?Object.entries(ob(us)).map(([usuario,x])=>({usuario,perfil:x.perfil})):[],menu:m,estoque:H(s),garcons:J(w)||[],mesas:ob(t),pedidos:ob(o),vendas:v.map(J)});
   }
   if(a==='menu_save'){await r('SET','menu',JSON.stringify(b.menu));return ok()}
+  if(a==='estoque_lote'){for(const [id,q] of Object.entries(b.itens||{}))await r('HSET','stock',id,Math.max(0,Math.floor(+q)||0));return ok()}
   if(a==='estoque'){await r('HSET','stock',b.id,Math.max(0,Math.floor(+b.qtd)||0));return ok()}
   if(a==='garcons'){await r('SET','waiters',JSON.stringify(b.lista||[]));return ok()}
   if(a==='mesa_abrir'){if(await r('HEXISTS','tables',b.mesa))return er(409,'Mesa já está aberta');await r('HSET','tables',b.mesa,JSON.stringify({garcom:b.garcom,itens:{}}));return ok()}

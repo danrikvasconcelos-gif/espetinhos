@@ -49,7 +49,7 @@ input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid #a8a
 </header>
 <main id="cardapio"></main>
 
-<button id="barra" disabled><span id="barra-qtd">Nenhum item</span><span id="barra-total">R$ 0,00</span></button>
+<button id="barra" disabled><span id="barra-qtd">Enviar pedido</span><span id="barra-total">R$ 0,00</span></button>
 
 <dialog id="dlg">
   <h3>Seu pedido</h3>
@@ -76,55 +76,41 @@ input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid #a8a
 
 <script>
 // ====== CONFIGURE AQUI ======
-const WHATSAPP = "5585988015655"; // DDI + DDD + número, só dígitos
-const TAXA_ENTREGA = 2;           // 0 para não cobrar
-const CARDAPIO = [
-  {cat:"Carnes",itens:[
-    {id:1,nome:"Espetinho de carne",desc:"Contra-filé temperado",preco:8},
-    {id:2,nome:"Espetinho de frango",desc:"Peito com bacon",preco:7},
-    {id:3,nome:"Espetinho de linguiça",desc:"Toscana artesanal",preco:7},
-    {id:4,nome:"Espetinho de coração",desc:"Coração de frango",preco:6},
-    {id:5,nome:"Espetinho de queijo coalho",desc:"Com orégano",preco:8}]},
-  {cat:"Acompanhamentos",itens:[
-    {id:6,nome:"Farofa",desc:"Porção individual",preco:4},
-    {id:7,nome:"Vinagrete",desc:"Porção individual",preco:3},
-    {id:8,nome:"Mandioca frita",desc:"Porção média",preco:12}]},
-  {cat:"Bebidas",itens:[
-    {id:9,nome:"Refrigerante lata",desc:"350 ml",preco:6},
-    {id:10,nome:"Suco natural",desc:"Copo 400 ml",preco:7},
-    {id:11,nome:"Água",desc:"500 ml",preco:3}]}
-];
+const WHATSAPP = "5588999999999"; // DDI + DDD + número, só dígitos
+const TAXA_ENTREGA = 5;           // 0 para não cobrar
+let MENU=[],EST={};
+const api=async b=>{const r=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.erro||"Erro");return j};
+async function carregar(){try{const d=await api({a:"menu"});MENU=d.menu;EST=d.estoque}catch(e){$("cardapio").innerHTML="<p>Cardápio indisponível. Tente novamente em instantes.</p>";return}desenhar();atualizar()}
 // ============================
 
 const brl = v => v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const carrinho = {};
-const todos = CARDAPIO.flatMap(c => c.itens);
 const $ = id => document.getElementById(id);
 
 function desenhar(){
-  $("cardapio").innerHTML = CARDAPIO.map(c =>
-    `<h2>${c.cat}</h2>` + c.itens.map(i => `
+  const cats=[...new Set(MENU.map(i=>i.cat))];
+  $("cardapio").innerHTML = cats.map(c => `<h2>${c}</h2>` + MENU.filter(i=>i.cat===c).map(i => { const e=+EST[i.id]||0; return `
     <div class="item">
-      <div><strong>${i.nome}</strong><small>${i.desc}</small><div class="preco">${brl(i.preco)}</div></div>
-      <div class="qtd">
+      <div><strong>${i.nome}</strong><small>${i.desc}</small><div class="preco">${brl(i.preco)}${e>0?"":" · Esgotado"}</div></div>
+      ${e>0?`<div class="qtd">
         <button aria-label="Remover ${i.nome}" data-id="${i.id}" data-d="-1">−</button>
         <span id="q${i.id}">0</span>
         <button aria-label="Adicionar ${i.nome}" data-id="${i.id}" data-d="1">+</button>
-      </div>
-    </div>`).join("")).join("");
+      </div>`:""}
+    </div>`}).join("")).join("");
 }
-function subtotal(){return todos.reduce((s,i)=>s+(carrinho[i.id]||0)*i.preco,0)}
+function subtotal(){return MENU.reduce((s,i)=>s+(carrinho[i.id]||0)*i.preco,0)}
 function qtdTotal(){return Object.values(carrinho).reduce((a,b)=>a+b,0)}
 function atualizar(){
-  todos.forEach(i => $("q"+i.id).textContent = carrinho[i.id]||0);
+  MENU.forEach(i=>{const q=$("q"+i.id);if(q)q.textContent=carrinho[i.id]||0});
   const n = qtdTotal();
   $("barra").disabled = n===0;
-  $("barra-qtd").textContent = n ? `Ver pedido (${n} ${n>1?"itens":"item"})` : "Nenhum item";
+  $("barra-qtd").textContent = n ? `Enviar pedido (${n} ${n>1?"itens":"item"})` : "Enviar pedido";
   $("barra-total").textContent = brl(subtotal());
 }
 function total(){return subtotal() + ($("tipo").value==="Entrega"?TAXA_ENTREGA:0)}
 function resumo(){
-  $("resumo").innerHTML = todos.filter(i=>carrinho[i.id]).map(i =>
+  $("resumo").innerHTML = MENU.filter(i=>carrinho[i.id]).map(i =>
     `<div class="linha"><span>${carrinho[i.id]}× ${i.nome}</span><span>${brl(carrinho[i.id]*i.preco)}</span></div>`).join("")
     + ($("tipo").value==="Entrega" && TAXA_ENTREGA ? `<div class="linha"><span>Taxa de entrega</span><span>${brl(TAXA_ENTREGA)}</span></div>`:"");
   $("total").textContent = "Total: " + brl(total());
@@ -133,25 +119,32 @@ function resumo(){
 $("cardapio").addEventListener("click", e => {
   const b = e.target.closest("button"); if(!b) return;
   const id = +b.dataset.id, d = +b.dataset.d;
-  carrinho[id] = Math.max(0,(carrinho[id]||0)+d);
+  carrinho[id] = Math.min(+EST[id]||0,Math.max(0,(carrinho[id]||0)+d));
   atualizar();
 });
 $("barra").onclick = () => { resumo(); $("erro").textContent=""; $("dlg").showModal(); };
 $("fechar").onclick = () => $("dlg").close();
 $("tipo").onchange = () => { $("campo-end").hidden = $("tipo").value!=="Entrega"; resumo(); };
-$("enviar").onclick = () => {
-  const nome = $("nome").value.trim(), ent = $("tipo").value==="Entrega", end = $("end").value.trim();
+$("enviar").onclick = async () => {
+  const nome=$("nome").value.trim(), ent=$("tipo").value==="Entrega", end=$("end").value.trim();
   if(!nome){ $("erro").textContent="Informe seu nome."; return; }
   if(ent && !end){ $("erro").textContent="Informe o endereço de entrega."; return; }
-  let m = `*Novo pedido – Espetinho da Brasa*\nCliente: ${nome}\n\n`;
-  todos.filter(i=>carrinho[i.id]).forEach(i => m += `${carrinho[i.id]}x ${i.nome} – ${brl(carrinho[i.id]*i.preco)}\n`);
-  m += `\n${ent?`Entrega: ${end}\nTaxa: ${brl(TAXA_ENTREGA)}`:"Retirada no local"}\nPagamento: ${$("pgto").value}`;
-  if($("obs").value.trim()) m += `\nObs: ${$("obs").value.trim()}`;
-  m += `\n*Total: ${brl(total())}*`;
-  window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(m)}`,"_blank");
+  $("enviar").disabled=true; $("erro").textContent="";
+  try{
+    const r=await api({a:"pedido",nome,tipo:$("tipo").value,end,pgto:$("pgto").value,obs:$("obs").value.trim(),taxa:TAXA_ENTREGA,itens:carrinho});
+    let m=`*Pedido #${r.id} – Espetinho da Brasa*\nCliente: ${nome}\n\n`;
+    MENU.filter(i=>carrinho[i.id]).forEach(i => m += `${carrinho[i.id]}x ${i.nome} – ${brl(carrinho[i.id]*i.preco)}\n`);
+    m += `\n${ent?`Entrega: ${end}\nTaxa: ${brl(TAXA_ENTREGA)}`:"Retirada no local"}\nPagamento: ${$("pgto").value}`;
+    if($("obs").value.trim()) m += `\nObs: ${$("obs").value.trim()}`;
+    m += `\n*Total: ${brl(r.subtotal+(ent?TAXA_ENTREGA:0))}*`;
+    Object.keys(carrinho).forEach(k=>delete carrinho[k]);
+    $("dlg").close(); carregar();
+    location.href=`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(m)}`;
+  }catch(e){ $("erro").textContent=e.message; carregar(); }
+  $("enviar").disabled=false;
 };
 
-desenhar(); atualizar();
+carregar();
 </script>
 </body>
 </html>
