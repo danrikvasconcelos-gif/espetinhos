@@ -30,7 +30,10 @@ module.exports=async(req,res)=>{
    return res.json({id,subtotal:soma(l)});
   }
   // ---- área do dono ----
-  if(!process.env.ADMIN_PASSWORD||req.headers['x-admin']!==process.env.ADMIN_PASSWORD)return er(401,'Senha incorreta');
+  const SENHA=(process.env.ADMIN_PASSWORD||'').trim();
+  if(!SENHA)return er(401,'ADMIN_PASSWORD não está configurada neste deploy. Faça um Redeploy na Vercel.');
+  let hs='';try{hs=decodeURIComponent(req.headers['x-admin']||'').trim()}catch(e){}
+  if(hs!==SENHA)return er(401,'Senha incorreta');
   if(a==='state'){
    const [s,w,t,o,v]=await Promise.all([r('HGETALL','stock'),r('GET','waiters'),r('HGETALL','tables'),r('HGETALL','orders'),r('LRANGE','sales:'+(b.dia||hoje()),0,-1)]);
    return res.json({menu:m,estoque:H(s),garcons:J(w)||[],mesas:ob(t),pedidos:ob(o),vendas:v.map(J)});

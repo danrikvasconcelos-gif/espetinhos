@@ -34,7 +34,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 let S={},aba='mesas',pw=sessionStorage.pw||'',dia=new Date().toLocaleDateString('sv-SE',TZ),D=[],ab={};
 const P=id=>S.menu.find(p=>p.id==id)||{nome:'?',preco:0};
 const tot=it=>Object.entries(it).reduce((s,[i,q])=>s+q*P(i).preco,0);
-const api=async b=>{const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','x-admin':pw},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.erro||'Erro');return j};
+const api=async b=>{const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','x-admin':encodeURIComponent(pw)},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.erro||'Erro');return j};
 async function load(){S=await api({a:'state',dia});render()}
 async function act(b){try{await api(b);await load()}catch(e){alert(e.message)}}
 async function entrar(){pw=$('senha').value||pw;try{await load();sessionStorage.pw=pw;$('login').hidden=true;$('app').hidden=false}catch(e){$('lerr').textContent=e.message}}
