@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Painel – Espetinho da Brasa</title>
+<style>
+:root{--c:#1c1917;--b:#e4572e;--v:#1f7a4d;--r:#b91c1c;--a:#f5f0e8}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,sans-serif;background:var(--a);color:var(--c);padding-bottom:40px}
+#login{max-width:340px;margin:18vh auto;padding:20px;display:grid;gap:10px;text-align:center}
+nav{position:sticky;top:0;background:var(--c);display:flex;overflow-x:auto;z-index:2}
+nav button{flex:1;min-width:88px;padding:14px 8px;background:none;border-radius:0;color:#d6cfc4}
+nav button.on{color:#fff;border-bottom:3px solid var(--b);font-weight:bold}
+main{max-width:900px;margin:0 auto;padding:14px}
+.card{background:#fff;border-left:5px solid var(--b);border-radius:4px;padding:12px;margin-bottom:12px}
+h3{margin-bottom:6px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.row input{flex:1 1 130px}.row input[type=number]{flex:0 0 90px}
+.ln{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px dashed #d6d3d1;gap:8px}
+.tot{text-align:right;font-weight:bold;font-size:1.15rem;margin-top:8px}
+input,select{font:inherit;padding:9px;border:1px solid #a8a29e;border-radius:4px;min-width:0}
+button{font:inherit;padding:9px 14px;border:0;border-radius:4px;background:var(--c);color:#fff;cursor:pointer}
+button.ok{background:var(--v)}button.no{background:var(--r)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:#e7e5e4;color:var(--c)}.chip:disabled{opacity:.4}
+small{color:#57534e}
+</style></head><body>
+<div id="login"><h1>Painel do dono</h1><input id="senha" type="password" placeholder="Senha" autocomplete="current-password"><button id="entrar">Entrar</button><p id="lerr" style="color:var(--r)"></p></div>
+<div id="app" hidden>
+<nav id="abas"><button data-t="mesas">Mesas</button><button data-t="wpp">WhatsApp</button><button data-t="estoque">Estoque</button><button data-t="ajustes">Ajustes</button><button data-t="rel">Relatório</button></nav>
+<main id="v"></main></div>
+<script>
+const PG=['Pix','Dinheiro','Cartão'],pgo=s=>PG.map(p=>`<option${p===s?' selected':''}>${p}</option>`).join('');
+const TZ={timeZone:'America/Fortaleza'};
+const $=id=>document.getElementById(id),brl=v=>(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S={},aba='mesas',pw=sessionStorage.pw||'',dia=new Date().toLocaleDateString('sv-SE',TZ),D=[],ab={};
+const P=id=>S.menu.find(p=>p.id==id)||{nome:'?',preco:0};
+const tot=it=>Object.entries(it).reduce((s,[i,q])=>s+q*P(i).preco,0);
+const api=async b=>{const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','x-admin':pw},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.erro||'Erro');return j};
+async function load(){S=await api({a:'state',dia});render()}
+async function act(b){try{await api(b);await load()}catch(e){alert(e.message)}}
+async function entrar(){pw=$('senha').value||pw;try{await load();sessionStorage.pw=pw;$('login').hidden=true;$('app').hidden=false}catch(e){$('lerr').textContent=e.message}}
+$('entrar').onclick=entrar;$('senha').onkeydown=e=>{if(e.key==='Enter')entrar()};if(pw)entrar();
+function go(t){aba=t;if(t==='ajustes')D=JSON.parse(JSON.stringify(S.menu));render()}
+$('abas').onclick=e=>{if(e.target.dataset.t)go(e.target.dataset.t)};
+setInterval(()=>{if((aba==='mesas'||aba==='wpp')&&pw&&!document.activeElement.matches('input,select'))load().catch(()=>{})},15000);
+function render(){
+ const n=Object.keys(S.pedidos).length;
+ document.querySelectorAll('nav button').forEach(b=>{b.classList.toggle('on',b.dataset.t===aba);if(b.dataset.t==='wpp')b.textContent='WhatsApp'+(n?` (${n})`:'')});
+ $('v').innerHTML=({mesas:vMesas,wpp:vWpp,estoque:vEstoque,ajustes:vAjustes,rel:vRel})[aba]();
+}
+// ---------- MESAS ----------
+const abrir=()=>{const m=parseInt($('nm').value);if(!m||!$('gm').value)return alert('Informe o nº da mesa e o garçom');act({a:'mesa_abrir',mesa:String(m),garcom:$('gm').value})};
+const item=(m,id,d)=>act({a:'mesa_item',mesa:m,id,d});
+const fecharMesa=n=>{if(confirm('Fechar a mesa '+n+'?'))act({a:'mesa_fechar',mesa:n,pgto:$('pg'+n).value})};
+function vMesas(){
+ return `<div class="card"><h3>Abrir mesa</h3><div class="row"><input id="nm" type="number" min="1" placeholder="Nº da mesa"><select id="gm">${S.garcons.map(g=>`<option>${esc(g)}</option>`).join('')}</select><button onclick="abrir()">Abrir</button></div>${S.garcons.length?'':'<small>Cadastre os garçons na aba Ajustes.</small>'}</div>`
+ +Object.entries(S.mesas).sort((a,b)=>a[0]-b[0]).map(([n,t])=>`<div class="card"><h3>Mesa ${n} · ${esc(t.garcom)}</h3>
+ ${Object.entries(t.itens).map(([id,q])=>`<div class="ln"><span>${q}× ${esc(P(id).nome)}</span><span>${brl(q*P(id).preco)} <button onclick="item('${n}',${id},-1)">−</button></span></div>`).join('')||'<small>Sem itens</small>'}
+ <details ${ab[n]?'open':''} ontoggle="ab['${n}']=this.open"><summary style="margin-top:8px;cursor:pointer">Adicionar item</summary><div class="chips">${S.menu.map(p=>`<button class="chip" ${+S.estoque[p.id]>0?'':'disabled'} onclick="item('${n}',${p.id},1)">${esc(p.nome)} <small>(${+S.estoque[p.id]||0})</small></button>`).join('')}</div></details>
+ <div class="tot">Total: ${brl(tot(t.itens))}</div>
+ <div class="row"><select id="pg${n}">${pgo()}</select><button class="ok" onclick="fecharMesa('${n}')">Fechar mesa</button></div></div>`).join('')
+ ||'<p style="text-align:center;color:#57534e">Nenhuma mesa aberta.</p>';
+}
+// ---------- WHATSAPP ----------
+const fecharW=id=>act({a:'wpp_fechar',id,pgto:$('wp'+id).value});
+const cancelarW=id=>{if(confirm('Cancelar o pedido #'+id+'? O estoque será devolvido.'))act({a:'wpp_cancelar',id})};
+function vWpp(){
+ return Object.values(S.pedidos).sort((a,b)=>a.id-b.id).map(o=>`<div class="card"><h3>#${o.id} · ${esc(o.cliente)} <small>${o.ts}</small></h3>
+ <div>${o.tipo}${o.tipo==='Entrega'?': '+esc(o.end):''}</div>
+ ${Object.entries(o.itens).map(([id,q])=>`<div class="ln"><span>${q}× ${esc(P(id).nome)}</span><span>${brl(q*P(id).preco)}</span></div>`).join('')}
+ ${o.taxa?`<div class="ln"><span>Taxa de entrega</span><span>${brl(o.taxa)}</span></div>`:''}${o.obs?`<div><small>Obs: ${esc(o.obs)}</small></div>`:''}
+ <div class="tot">Total: ${brl(tot(o.itens)+o.taxa)}</div>
+ <div class="row"><select id="wp${o.id}">${pgo(o.pgto)}</select><button class="ok" onclick="fecharW(${o.id})">Fechar (pago)</button><button class="no" onclick="cancelarW(${o.id})">Cancelar</button></div></div>`).join('')
+ ||'<p style="text-align:center;color:#57534e">Nenhum pedido pendente do WhatsApp.</p>';
+}
+// ---------- ESTOQUE ----------
+const vEstoque=()=>`<div class="card"><h3>Estoque</h3><small>Digite a quantidade disponível. Os clientes e as mesas usam este mesmo estoque.</small>`
+ +S.menu.map(p=>`<div class="ln"><span>${esc(p.nome)}</span><input type="number" min="0" value="${+S.estoque[p.id]||0}" onchange="act({a:'estoque',id:${p.id},qtd:this.value})"></div>`).join('')+`</div>`;
+// ---------- AJUSTES ----------
+const addP=()=>{D.push({id:Math.max(0,...D.map(p=>p.id))+1,cat:'Carnes',nome:'',desc:'',preco:0});render()};
+function vAjustes(){
+ return `<div class="card"><h3>Garçons</h3><small>Separe os nomes por vírgula.</small><div class="row"><input id="gl" value="${esc(S.garcons.join(', '))}"><button onclick="act({a:'garcons',lista:$('gl').value.split(',').map(s=>s.trim()).filter(Boolean)})">Salvar</button></div></div>
+ <div class="card"><h3>Cardápio</h3>${D.map((p,i)=>`<div class="row"><input placeholder="Categoria" value="${esc(p.cat)}" oninput="D[${i}].cat=this.value"><input placeholder="Nome" value="${esc(p.nome)}" oninput="D[${i}].nome=this.value"><input placeholder="Descrição" value="${esc(p.desc)}" oninput="D[${i}].desc=this.value"><input type="number" step="0.5" min="0" value="${p.preco}" oninput="D[${i}].preco=+this.value"><button class="no" onclick="D.splice(${i},1);render()">✕</button></div>`).join('')}
+ <div class="row"><button onclick="addP()">+ Novo item</button><button class="ok" onclick="act({a:'menu_save',menu:D.filter(p=>p.nome.trim())})">Salvar cardápio</button></div></div>`;
+}
+// ---------- RELATÓRIO ----------
+function vRel(){
+ const s=c=>S.vendas.filter(v=>v.canal===c).reduce((a,v)=>a+v.total,0);
+ return `<div class="card"><h3>Relatório do dia</h3><input type="date" value="${dia}" onchange="dia=this.value;load()">
+ <div class="ln"><span>Mesas</span><b>${brl(s('mesa'))}</b></div><div class="ln"><span>WhatsApp</span><b>${brl(s('whatsapp'))}</b></div>
+ <div class="tot">Total: ${brl(s('mesa')+s('whatsapp'))}</div>
+ <div class="row"><button class="ok" onclick="relatorio()">Gerar relatório</button></div>
+ <small>Mesas abertas e pedidos pendentes só entram depois de fechados.</small></div>`;
+}
+function relatorio(){
+ const tb=(h,r)=>`<table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${r.map(l=>`<tr>${l.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table>`;
+ const sec=(nome,c)=>{
+  const v=S.vendas.filter(x=>x.canal===c),pg={},it={},gc={};
+  v.forEach(x=>{pg[x.pgto]=(pg[x.pgto]||0)+x.total;if(x.garcom)gc[x.garcom]=(gc[x.garcom]||0)+x.total;x.itens.forEach(i=>{it[i.nome]=it[i.nome]||{q:0,t:0};it[i.nome].q+=i.qtd;it[i.nome].t+=i.qtd*i.preco})});
+  const T=v.reduce((a,x)=>a+x.total,0);
+  return `<h2>${nome}</h2><p><b>${v.length}</b> fechamentos · Total <b>${brl(T)}</b></p>`+(v.length?
+   `<h3>Por forma de pagamento</h3>`+tb(['Forma','Total'],Object.entries(pg).map(([k,x])=>[esc(k),brl(x)]))
+   +(c==='mesa'?`<h3>Por garçom</h3>`+tb(['Garçom','Total'],Object.entries(gc).map(([k,x])=>[esc(k),brl(x)])):'')
+   +`<h3>Itens vendidos</h3>`+tb(['Item','Qtd','Total'],Object.entries(it).map(([k,x])=>[esc(k),x.q,brl(x.t)]))
+   +`<h3>Fechamentos individuais</h3>`+tb(['Hora',c==='mesa'?'Mesa / Garçom':'Pedido / Cliente','Pgto','Total'],v.map(x=>[x.hora,c==='mesa'?`Mesa ${esc(x.mesa)} / ${esc(x.garcom)}`:`#${x.pedido} ${esc(x.cliente)} (${x.tipo})`,esc(x.pgto),brl(x.total)])):'<p>Sem vendas.</p>')
+  ;};
+ const G=S.vendas.reduce((a,v)=>a+v.total,0);
+ const w=window.open('','_blank');
+ w.document.write(`<!DOCTYPE html><html lang="pt-BR"><meta charset="UTF-8"><title>Relatório ${dia}</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:20px auto;padding:0 14px}table{width:100%;border-collapse:collapse;margin:6px 0 14px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}h2{margin-top:26px;border-bottom:2px solid #000}@media print{button{display:none}}</style><button onclick="print()">Imprimir / Salvar PDF</button><h1>Espetinho da Brasa – Fechamento de ${dia.split('-').reverse().join('/')}</h1>${sec('Vendas nas mesas','mesa')}${sec('Vendas por WhatsApp','whatsapp')}<h2>Total geral: ${brl(G)}</h2>`);
+ w.document.close();
+}
+</script></body></html>
